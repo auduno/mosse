@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>MOSSE</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #f0f0f0;
+				margin: 0px;
+				overflow: hidden;
+			}
+			
+			#overlay {
+				position: absolute;
+				top: 0px;
+				left: 0px;
+			}
+			
+			#overlay2 {
+				position: absolute;
+				display: none;
+				top: 0px;
+				left: 0px;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<script src="./ext_js/Stats.js"></script>
+		<script src="./ext_js/ccv.js"></script>
+		<script src="./ext_js/cascade.js"></script>
+		<script src="./ext_js/utils.js"></script>
+		<script src="../filters/entire_face_filter.js"></script>
+		<script src="../mosse.js"></script>
+		<video id="videoel" width="640" height="480" preload="auto"></video>
+		<canvas id="overlay" width="640" height="480"></canvas>
+		<canvas id="overlay2" width="640" height="480"></canvas>
+		<input type="button" value="wait, loading video" disabled="disabled" onclick="start()" id="startbutton"></input>
+		<p id='gUMMessage'></p>
+		<p>Show mosse filter output:<input type="checkbox" value="show filters" id="chkbox" onchange="checkbox()"></input></p>
+		
+		<script>
+			 var mossef_face, filterWidth;
+			 var face_position = [];
+			 var first = true;
+			 var overlay = document.getElementById('overlay');
+			 overlay.style = "position:absolute";
+			 overlayCC = overlay.getContext('2d');
+			 
+			 var overlay2 = document.getElementById('overlay2');
+			 
+			 stats = new Stats();
+			 stats.domElement.style.position = 'absolute';
+			 stats.domElement.style.top = '0px';
+			 document.getElementById('container').appendChild( stats.domElement );
+			 
+			 var videoInput = document.getElementById('videoel');
+			 
+			 function checkbox(e) {
+			     if (document.getElementById('chkbox').checked) {
+			         document.getElementById('overlay2').style.display = "block";
+			     } else {
+			         document.getElementById('overlay2').style.display = "none";
+			     }
+			 }
+			 
+			 function enablestart() {
+			   var videoInput = document.getElementById('videoel');
+			   videoInput.width = videoInput.videoWidth;
+				 videoInput.height = videoInput.videoHeight;
+			   var overlayInput = document.getElementById('overlay');
+			   overlayInput.width = videoInput.videoWidth;
+				 overlayInput.height = videoInput.videoHeight;
+			   var overlay2Input = document.getElementById('overlay2');
+			   overlay2Input.width = videoInput.videoWidth;
+				 overlay2Input.height = videoInput.videoHeight;
+				 var startbutton = document.getElementById('startbutton');
+				 startbutton.value = "start";
+				 startbutton.disabled = null;
+			 }
+			 
+			 // set up fallback video
+			
+			var insertAltVideo = function(video) {
+				if (supports_video()) {
+					if (supports_ogg_theora_video()) {
+						//alert("no fallback ogg video :(");
+						video.src = "./media/franck.ogv";
+					} else if (supports_h264_baseline_video()) {
+						alert("no fallback mp4 video :(");
+						//video.src = "./media/capture4.mp4";
+					} else {
+						return false;
+					}
+					//video.play();
+					return true;
+				} else return false;
+			}
+			 
+			// check for camerasupport
+			if (navigator.getUserMedia) {
+				// set up stream
+				
+				var videoSelector = {video : true};
+				if (window.navigator.appVersion.match(/Chrome\/(.*?) /)) {
+					var chromeVersion = parseInt(window.navigator.appVersion.match(/Chrome\/(\d+)\./)[1], 10);
+					if (chromeVersion < 20) {
+						videoSelector = "video";
+					}
+				};
+				
+				navigator.getUserMedia({video: true}, function( stream ) {
+					videoInput.src = window.URL.createObjectURL(stream);
+					videoInput.play();
+					videoInput.addEventListener('canplay', enablestart, false);
+				}, function() {
+					var messagep = document.getElementById('gUMMessage');
+					messagep.innerHTML = "No camera found.";
+				});
+			} else {
+				var messagep = document.getElementById('gUMMessage');
+				messagep.innerHTML = "Unfortunately, <a href='http://dev.w3.org/2011/webrtc/editor/getusermedia.html'>getUserMedia</a> is not supported in your browser. Try <a href='http://www.opera.com/browser/'>downloading Opera 12</a> or <a href='http://caniuse.com/stream'>another browser that supports getUserMedia</a>.";
+			}
+			 
+			 function start() {
+				 //start tracking
+				 animate();
+			 }
+			 
+			 function animate() {
+				 //ctrack.track(document.getElementById('videoel'));
+				 overlay2.getContext('2d').clearRect(0,0,overlay2.width,overlay2.height);
+				 doTrack(videoInput);
+				 stats.update();
+				 requestAnimationFrame(animate);
+			 }
+			 
+			 var counted = 0;
+			 
+			 function doTrack(vi) {
+				 if (first) {
+						var vc = document.createElement("canvas");
+						vc.setAttribute('width', vi.width);
+						vc.setAttribute('height', vi.height);
+						var cc = vc.getContext('2d');
+						cc.drawImage(vi, 0,0, vi.width, vi.height)
+						
+						// do ccv
+						var comp = ccv.detect_objects(
+							ccv.grayscale(vc), ccv.cascade, 5, 1
+						);
+						
+						if (comp.length > 0) {
+							candidate = comp[0];
+							first = false;
+						} else {
+							return false;
+						}
+						
+						for (var i = 1; i < comp.length; i++) {
+							if (comp[i].confidence > candidate.confidence) {
+								candidate = comp[i];
+							}
+						}
+						var face = candidate;
+						mossef_face = new mosseFilter({drawResponse : overlay2, psrThreshold : 5});
+						mossef_face.load(face_filter);
+						filterWidth = face.width;
+						
+						overlayCC.strokeStyle = "orange";
+						overlayCC.fillStyle = "orange";
+						
+						//overlayCC.strokeRect(Math.round(face.x), Math.round(face.y),filterWidth,filterWidth);
+						//var result = mossef.track(videoInput, Math.round(face.x+(face.width/2)-(filterWidth/2)), Math.round(face.y+face.height*(1/3)-(filterWidth/2)), filterWidth, filterWidth, false);
+						var face_result = mossef_face.track(videoInput, Math.round(face.x), Math.round(face.y), filterWidth, filterWidth, false);
+						
+						face_position[0] = Math.round(face.x)+face_result[0];
+						face_position[1] = Math.round(face.y)+face_result[1];
+						overlayCC.strokeRect(face_position[0], face_position[1], 1, 1);
+						
+				 } else {
+					 
+					 overlayCC.clearRect(0, 0, overlay.width, overlay.height);
+					 
+					 //overlayCC.strokeRect(Math.round(position[0]-(filterWidth/2)), Math.round(position[1]-(filterWidth/2)), filterWidth, filterWidth);
+					 if (counted < 200) {
+					   counted += 1;
+					   var face_result = mossef_face.track(videoInput, Math.round(face_position[0]-(filterWidth/2)), Math.round(face_position[1]-(filterWidth/2)), filterWidth, filterWidth, true, true);
+					 } else {
+					   var face_result = mossef_face.track(videoInput, Math.round(face_position[0]-(filterWidth/2)), Math.round(face_position[1]-(filterWidth/2)), filterWidth, filterWidth, false, true);
+					 }
+					 face_position[0] += (face_result[0]-(filterWidth/2));
+					 face_position[1] += (face_result[1]-(filterWidth/2));
+					 
+					 overlayCC.beginPath();
+					 overlayCC.arc(face_position[0], face_position[1], 3, 0, Math.PI*2, true);
+					 overlayCC.closePath();
+					 overlayCC.fill()
+				 }
+			 }
+		</script>
+	</body>
+</html>

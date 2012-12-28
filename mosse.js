@@ -18,9 +18,9 @@ function mosseFilter(params) {
     var _fft;
     var _w,_h;
     var peak = 0.0;
+    var updateable = false;
     
     if (!params) params = {};
-    
     // setup of canvas for drawing responses, if given
     if (params.drawResponse === undefined) {
         params.drawResponse = false;
@@ -35,78 +35,17 @@ function mosseFilter(params) {
     if (params.eta === undefined) params.eta = 0.10;
     if (params.convertToGrayscale === undefined) params.convertToGrayscale = true;
     
-    var preprocess = function(array) {
-        // log adjusting
-        var processed = array.map(function(a) {return Math.log(a+1);});
-        // normalize to mean 0 and norm 1
-        var mean = 0;
-        for (var i = 0;i < processed.length;i++) {
-          mean += processed[i];
-        }
-        mean /= processed.length;
-        processed = processed.map(function(x) {return (x-mean);});
-        norm = processed.reduce(function(a,b) {return a+(b*b)});
-        norm = Math.sqrt(norm);
-        processed = processed.map(function(x) {return x/norm;});
-        
-        return processed;
-    }
-    
-    var cosine_window = function(array) {
-        // calculate rect cosine window
-        var r,x,y,pos;
-        var newArray = [];
-        for (var i = 0;i < _w;i++) {
-            for (var j = 0;j < _h;j++) {
-                x = i-(_w/2);
-                y = j-(_h/2);
-                pos = (i%_w)+(j*_w);
-                var cww = Math.sin((Math.PI*i)/(_w-1))
-                var cwh = Math.sin((Math.PI*j)/(_h-1))
-                newArray[pos] = Math.min(cww,cwh)*array[pos];
-            }
-        }
-        
-        return newArray;
-    }
-    
-    var complex_mult = function(cn1, cn2) {
-        var nucn = [[],[]];
-        var cnlen = cn1[0].length;
-        for (var r = 0;r < cnlen;r++) {
-            nucn[0][r] = (cn1[0][r]*cn2[0][r]) - (cn1[1][r]*cn2[1][r]);
-            nucn[1][r] = (cn1[0][r]*cn2[1][r]) + (cn1[1][r]*cn2[0][r]);
-        }
-        return nucn;
-    }
-    
-    var complex_conj = function(cn) {
-        var nucn = [[],[]];
-        cnlen = cn[1].length;
-        for (var i = 0;i < cnlen;i++) {
-            nucn[0][i] = cn[0][i]
-            nucn[1][i] = -cn[1][i];
-        }
-        return nucn;
-    }
-    
-    var complex_div = function(cn1, cn2) {
-        var nucn = [[],[]];
-        var cnlen = cn1[0].length;
-        for (var r = 0;r < cnlen;r++) {
-            nucn[0][r] = ((cn1[0][r]*cn2[0][r])+(cn1[1][r]*cn2[1][r])) / ((cn2[0][r]*cn2[0][r]) + (cn2[1][r]*cn2[1][r]));
-            nucn[1][r] = ((cn1[1][r]*cn2[0][r])-(cn1[0][r]*cn2[1][r])) / ((cn2[0][r]*cn2[0][r]) + (cn2[1][r]*cn2[1][r]));
-        }
-        return nucn;
-    }
-    
     this.load = function(filter) {
         // initialize filter width and height
         _w = filter.width;
         _h = filter.height;
         _filter = [filter.real, filter.imag];
-        _top = [filter.top.real, filter.top.imag];
-        _bottom = [filter.bottom.real, filter.bottom.imag];
+        // handling top and bottom when they're not present
+        if (filter.top && filter.bottom) {
+          updateable = true;
+          _top = [filter.top.real, filter.top.imag];
+          _bottom = [filter.bottom.real, filter.bottom.imag];
+        }
         
         // initialize fft to given width
         _fft = new FFT();
@@ -133,6 +72,7 @@ function mosseFilter(params) {
             _bottom[0][i] = 0;
             _bottom[1][i] = 0;
         }
+        updateable = true;
         
         // initialize fft to given width
         _fft = new FFT();
@@ -196,6 +136,22 @@ function mosseFilter(params) {
         return psr;
     }
     
+    this.getResponse = function(imageData) {
+        
+        // preprocess
+        var prepImage = preprocess(imageData);
+        prepImage = cosine_window(prepImage);
+        
+        // filter
+        var res = this.fft(prepImage);
+        // elementwise multiplication with filter
+        var nures = complex_mult(res, _filter);
+        // do inverse 2d fft
+        var filtered = this.ifft(nures[0],nures[1]);
+        
+        return filtered;
+    }
+    
     this.track = function(input, left, top, width, height, updateFilter, gaussianPrior) {
         // finds position of filter in input image
         
@@ -204,6 +160,7 @@ function mosseFilter(params) {
             return false;
         }
         
+        // TODO : this should be done on initialization
         var canvas = document.createElement("canvas");
         canvas.setAttribute('width', _w);
         canvas.setAttribute('height', _h);
@@ -224,7 +181,10 @@ function mosseFilter(params) {
         var id = image.data;
         
         var imagesize = _w*_h;
+        
+        // TODO: this should be preinitialized float64Array
         var newImage = [];  
+        
         if (params.convertToGrayscale) {
             // convert to grayscale
             for (var i = 0;i < imagesize;i++) {
@@ -313,38 +273,42 @@ function mosseFilter(params) {
         
         
         if (updateFilter) {
-            var psr = this.psr(filtered);
-            
-            if (psr > params.psrThreshold) {
-                // create target
-                var target = [];
-                var nux = maxpos[0];
-                var nuy = maxpos[1];
-                for (var x = 0;x < _w;x++) {
-                    for (var y = 0;y < _h;y++) {
-                        target[(y*_w)+x] = Math.exp(-(((x-nux)*(x-nux))+((y-nuy)*(y-nuy)))/(2*2));
+            if (!updateable) {
+                console.log("The loaded filter does not support updating. Ignoring parameter 'updateFilter'.");
+            } else {
+                var psr = this.psr(filtered);
+                
+                if (psr > params.psrThreshold) {
+                    // create target
+                    var target = [];
+                    var nux = maxpos[0];
+                    var nuy = maxpos[1];
+                    for (var x = 0;x < _w;x++) {
+                        for (var y = 0;y < _h;y++) {
+                            target[(y*_w)+x] = Math.exp(-(((x-nux)*(x-nux))+((y-nuy)*(y-nuy)))/(2*2));
+                        }
                     }
+                    
+                    //fft target
+                    target = this.fft(target);
+                    
+                    // create filter
+                    var res_conj = complex_conj(res);
+                    var fuTop = complex_mult(target,res_conj);
+                    var fuBottom = complex_mult(res,res_conj);
+                    
+                    // add up
+                    var eta = params.eta;
+                    var fulen = fuTop[0].length;
+                    for (var i = 0;i < fulen;i++) {
+                        _top[0][i] = eta*fuTop[0][i] + (1-eta)*_top[0][i];
+                        _top[1][i] = eta*fuTop[1][i] + (1-eta)*_top[1][i];
+                        _bottom[0][i] = eta*fuBottom[0][i] + (1-eta)*_bottom[0][i];
+                        _bottom[1][i] = eta*fuBottom[1][i] + (1-eta)*_bottom[1][i];
+                    }
+                    
+                    _filter = complex_div(_top,_bottom);
                 }
-                
-                //fft target
-                target = this.fft(target);
-                
-                // create filter
-                var res_conj = complex_conj(res);
-                var fuTop = complex_mult(target,res_conj);
-                var fuBottom = complex_mult(res,res_conj);
-                
-                // add up
-                var eta = params.eta;
-                var fulen = fuTop[0].length;
-                for (var i = 0;i < fulen;i++) {
-                    _top[0][i] = eta*fuTop[0][i] + (1-eta)*_top[0][i];
-                    _top[1][i] = eta*fuTop[1][i] + (1-eta)*_top[1][i];
-                    _bottom[0][i] = eta*fuBottom[0][i] + (1-eta)*_bottom[0][i];
-                    _bottom[1][i] = eta*fuBottom[1][i] + (1-eta)*_bottom[1][i];
-                }
-                
-                _filter = complex_div(_top,_bottom);
             }
         }
         
@@ -352,8 +316,6 @@ function mosseFilter(params) {
           maxpos = [_w/2,_h/2]; 
         }*/
         
-        //maxpos[0] = Math.round(maxpos[0]*(width/_w));
-        //maxpos[1] = Math.round(maxpos[1]*(width/_h));
         maxpos[0] = maxpos[0]*(width/_w);
         maxpos[1] = maxpos[1]*(width/_h);
         
@@ -367,6 +329,11 @@ function mosseFilter(params) {
     }
     
     this.train = function(input, left, top, width, height) {
+        
+        if (!updateable) {
+          console.log("The loaded filter does not support updating. Unable to do training.");
+          return false;
+        }
         
         var canvas = document.createElement("canvas");
         canvas.setAttribute('width', _w);
@@ -434,6 +401,77 @@ function mosseFilter(params) {
         
         return true;
     }
+    
+    var preprocess = function(array) {
+        
+        // TODO : this needs to be optimized and inplace
+        // don't use map function
+        
+        // log adjusting
+        var processed = array.map(function(a) {return Math.log(a+1);});
+        // normalize to mean 0 and norm 1
+        var mean = 0;
+        for (var i = 0;i < processed.length;i++) {
+          mean += processed[i];
+        }
+        mean /= processed.length;
+        processed = processed.map(function(x) {return (x-mean);});
+        norm = processed.reduce(function(a,b) {return a+(b*b)});
+        norm = Math.sqrt(norm);
+        processed = processed.map(function(x) {return x/norm;});
+        
+        return processed;
+    }
+    
+    var cosine_window = function(array) {
+        // calculate rect cosine window
+        // TODO : this needs to be done in place
+        //   or the temporary array should be preinitializes
+        var r,x,y,pos;
+        var newArray = [];
+        for (var i = 0;i < _w;i++) {
+            for (var j = 0;j < _h;j++) {
+                x = i-(_w/2);
+                y = j-(_h/2);
+                pos = (i%_w)+(j*_w);
+                var cww = Math.sin((Math.PI*i)/(_w-1))
+                var cwh = Math.sin((Math.PI*j)/(_h-1))
+                newArray[pos] = Math.min(cww,cwh)*array[pos];
+            }
+        }
+        
+        return newArray;
+    }
+    
+    var complex_mult = function(cn1, cn2) {
+        var nucn = [[],[]];
+        var cnlen = cn1[0].length;
+        for (var r = 0;r < cnlen;r++) {
+            nucn[0][r] = (cn1[0][r]*cn2[0][r]) - (cn1[1][r]*cn2[1][r]);
+            nucn[1][r] = (cn1[0][r]*cn2[1][r]) + (cn1[1][r]*cn2[0][r]);
+        }
+        return nucn;
+    }
+    
+    var complex_conj = function(cn) {
+        var nucn = [[],[]];
+        cnlen = cn[1].length;
+        for (var i = 0;i < cnlen;i++) {
+            nucn[0][i] = cn[0][i]
+            nucn[1][i] = -cn[1][i];
+        }
+        return nucn;
+    }
+    
+    var complex_div = function(cn1, cn2) {
+        var nucn = [[],[]];
+        var cnlen = cn1[0].length;
+        for (var r = 0;r < cnlen;r++) {
+            nucn[0][r] = ((cn1[0][r]*cn2[0][r])+(cn1[1][r]*cn2[1][r])) / ((cn2[0][r]*cn2[0][r]) + (cn2[1][r]*cn2[1][r]));
+            nucn[1][r] = ((cn1[1][r]*cn2[0][r])-(cn1[0][r]*cn2[1][r])) / ((cn2[0][r]*cn2[0][r]) + (cn2[1][r]*cn2[1][r]));
+        }
+        return nucn;
+    }
 }
 
 /**
@@ -441,8 +479,7 @@ function mosseFilter(params) {
  * 1D-FFT/IFFT, 2D-FFT/IFFT (radix-2)
  * 
  * @author ryo / github.com/wellflat
- * Based on https://github.com/wellflat/jslib
- * with some tiny optimizations
+ * Based on https://github.com/wellflat/jslib with some tiny optimizations
  */
 
 function FFT() {

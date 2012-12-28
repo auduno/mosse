@@ -222,8 +222,8 @@
 					 // use previous position
 					 
 					 // get peaks
-					 var lpeak = mossef_left.getPeak();
-					 var rpeak = mossef_right.getPeak();
+					 var lpeak = mossef_left.peak_prev;
+					 var rpeak = mossef_right.peak_prev;
 					 peakindex += 1;
 					 lpeaks[peakindex % 40] = lpeak;
 					 rpeaks[peakindex % 40] = rpeak;

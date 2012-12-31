@@ -2,7 +2,7 @@ from PIL import Image
 from numpy import fft, array, mean, zeros
 from numpy.linalg import norm
 from numpy.ma import conjugate
-import os, json, math, numpy
+import os, json, math, numpy, random
 
 # cropsize
 width = 32
@@ -13,31 +13,23 @@ height = 32
 #y = 34
 
 # left eye
-#x = 43
-#y = 34
+x = 43
+y = 34
+
+# mouth
+#x = 59
+#y = 66
 
 # right eye
-x = 73
-y = 33
+#x = 73
+#y = 33
 
-left = x-((width)/2)
-top = y-((height)/2)
-#top = 23
-nux = x-left
-nuy = y-top
+# nose
+#x = 59
+#y = 50
 
-#def cosine_window(ar):
-#    halfWidth = (width)/2.
-#    halfHeight = (height)/2.
-#    rmax = math.sqrt((halfWidth*halfWidth)+(halfHeight*halfHeight))
-#    newArray = zeros(ar.shape)
-#    for i in range(0, width):
-#        for j in range(0, height):
-#            x = i-halfWidth
-#            y = j-halfHeight
-#            r = math.sqrt((x*x) + (y*y))
-#            newArray[j,i] = math.sin((math.pi*r)/(rmax-1))*ar[j,i]
-#    return newArray
+x = round(x*0.6379)
+y = round(y*0.6379)
 
 def cosine_window(ar):
     halfWidth = (width)/2.
@@ -67,21 +59,36 @@ def cosine_window(ar):
 #imagedata = []
 #targetdata = []
 
-# for each image
-#for k,v in images.iterval():
 images = []
+targetImages = []
 for files in os.listdir("./data"):
     im = Image.open("./data/"+files)
     im = im.convert("L")
+    im = im.resize((74,64),Image.BILINEAR)
+    
+    #generate random offset to target
+    xof = random.randint(-5,5)
+    yof = random.randint(-5,5)
+    #xof = 0
+    #yof = 0
+    left = x-((width)/2)-xof
+    top = y-((height)/2)-yof
+    nux = x-left
+    nuy = y-top
+    
     # crop
     im = im.crop((left,top,width+left,height+top))
+    #Image.fromarray(numpy.asarray(im).astype('int')).convert("L").save("test.bmp")
     images.append(numpy.asarray(im))
     
-# create target images
-targetImage = array([0.]*(width*height)).reshape((height,width))
-for x in range(0,width):
-    for y in range(0,height):
-        targetImage[x,y] = math.exp(-(((x-nux)*(x-nux))+((y-nuy)*(y-nuy)))/(2*2))   
+    # create target images
+    targetImage = array([0.]*(width*height)).reshape((height,width))
+    for xr in range(0,width):
+        for yr in range(0,height):
+            targetImage[yr,xr] = math.exp(-(((xr-nux)*(xr-nux))+((yr-nuy)*(yr-nuy)))/(2*2))
+    #Image.fromarray((targetImage*255).astype('int')).convert("L").save("test_target.bmp")
+    targetImages.append(targetImage)
+    #import pdb;pdb.set_trace()
 
 print "preprocessing"
 # preprocess all images (not targets)
@@ -95,7 +102,7 @@ images = [cosine_window(im) for im in images]
 
 # fft of images
 images = [fft.fft2(im) for im in images]
-targetImage = fft.fft2(targetImage)
+targetImages = [fft.fft2(ti) for ti in targetImages]
 
 print "calculating filter"
 # calculate filter
@@ -103,9 +110,9 @@ top = numpy.zeros((height, width))
 top = top.astype('complex')
 bottom = numpy.zeros((height, width))
 bottom = bottom.astype('complex')
-for im in images:
-    top += targetImage*conjugate(im)
-    bottom += im*conjugate(im)
+for r in range(len(images)):
+    top += targetImages[r]*conjugate(images[r])
+    bottom += images[r]*conjugate(images[r])
     
 filter = top/bottom
 
@@ -136,8 +143,8 @@ for f in bottom.flatten():
     fo['bottom']['real'].append(f.real)
     fo['bottom']['imag'].append(f.imag)
 
-fi = open("face_filter.js","w")
-fi.write("var face_filter = ")
+fi = open("filter_rand.js","w")
+fi.write("var filter = ")
 fi.write(json.dumps(fo))
 fi.write(";\n")
 fi.close()

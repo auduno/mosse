@@ -34,9 +34,9 @@
     <script src="../filters/left_eye_filter.js"></script>
     <script src="../filters/right_eye_filter.js"></script>
 		<script src="../mosse.js"></script>
-		<video id="videoel" width="368" height="288" preload="auto"></video>
-		<canvas id="overlay" width="368" height="288"></canvas>
-		<canvas id="overlay2" width="368" height="288"></canvas>
+		<video id="videoel" width="360" height="288" preload="auto"></video>
+		<canvas id="overlay" width="360" height="288"></canvas>
+		<canvas id="overlay2" width="360" height="288"></canvas>
 		
 		<p><input type="button" value="wait, loading video" disabled="disabled" onclick="start()" id="startbutton"></input></p>
 		<p>Show mosse filter output:<input type="checkbox" value="show filters" id="chkbox" onchange="checkbox()"></input></p>
@@ -104,7 +104,7 @@
 			 function start() {
 				 //start video
 				 videoInput.play();
-				 
+
 				 //start tracking
 				 animate();
 			 }

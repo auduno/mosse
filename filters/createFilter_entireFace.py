@@ -4,21 +4,12 @@ from numpy.linalg import norm
 from numpy.ma import conjugate
 import os, json, math, numpy, random
 
+# NB! this script assumes that the path ./data contains images from the MUCT dataset
+# This dataset can be downloaded from here : https://github.com/StephenMilborrow/muct
+
 # cropsize
 width = 32
 height = 32
-
-# midpoint between eyes
-#x = 58
-#y = 34
-
-# left eye
-#x = 43
-#y = 34
-
-# right eye
-#x = 73
-#y = 33
 
 x_i = 27+32
 y_i = 15+32
@@ -37,22 +28,6 @@ def cosine_window(ar):
             newArray[j,i] = min(cww,cwh)*ar[j,i]
     return newArray
 
-# we assume faces are scaled
-
-# load images and coordinate of point
-#images = {}
-#fi = open("./data/coordinates.csv")
-#for lines in fi:
-#    li = lines.split(";")
-#    coord = li[1].split(",")
-#    images[li[0]] = [int(coord[0]), int(coord[1])]
-#fi.close()
-
-#imagedata = []
-#targetdata = []
-
-# for each image
-#for k,v in images.iterval():
 images = []
 targetImages = []
 for files in os.listdir("./data"):
@@ -64,14 +39,12 @@ for files in os.listdir("./data"):
     yof = random.randint(-5,5)
     left = x_i-(64/2)-(xof*2)
     top = y_i-(64/2)-(yof*2)
-    #top = 23
     nux = 16+xof
     nuy = 16+yof
     
     # crop
     im = im.crop((left,top,64+left,64+top))
     im = im.resize((width,height),Image.BILINEAR)
-    #Image.fromarray(numpy.asarray(im).astype('int')).convert("L").save("test.bmp")
     images.append(numpy.asarray(im))
     
     # create target images
@@ -79,9 +52,7 @@ for files in os.listdir("./data"):
     for xr in range(0,width):
         for yr in range(0,height):
             targetImage[yr,xr] = math.exp(-(((xr-nux)*(xr-nux))+((yr-nuy)*(yr-nuy)))/(2*2))
-    #Image.fromarray((targetImage*255).astype('int')).convert("L").save("test_target.bmp")
     targetImages.append(targetImage)
-    #import pdb;pdb.set_trace()
 
 print "preprocessing"
 # preprocess all images (not targets)

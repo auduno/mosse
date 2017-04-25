@@ -4,30 +4,26 @@ from numpy.linalg import norm
 from numpy.ma import conjugate
 import os, json, math, numpy, random
 
+# NB! this script assumes that the path ./data contains images from the MUCT dataset
+# This dataset can be downloaded from here : https://github.com/StephenMilborrow/muct
+
+# which type of filter to build
+FOCUS = "left_eye"
+
 # cropsize
 width = 32
 height = 32
 
-# midpoint between eyes
-#x = 58
-#y = 34
+points = {
+    "left_eye" : [43, 34],
+    "mouth" : [59, 66],
+    "midpoint_between_eyes" : [58, 34],
+    "right_eye" : [73, 33],
+    "nose" : [59, 50]
+}
 
-# left eye
-x = 43
-y = 34
-
-# mouth
-#x = 59
-#y = 66
-
-# right eye
-#x = 73
-#y = 33
-
-# nose
-#x = 59
-#y = 50
-
+x = points[FOCUS][0]
+y = points[FOCUS][1]
 x = round(x*0.6379)
 y = round(y*0.6379)
 
@@ -45,20 +41,6 @@ def cosine_window(ar):
             newArray[j,i] = min(cww,cwh)*ar[j,i]
     return newArray
 
-# we assume faces are scaled
-
-# load images and coordinate of point
-#images = {}
-#fi = open("./data/coordinates.csv")
-#for lines in fi:
-#    li = lines.split(";")
-#    coord = li[1].split(",")
-#    images[li[0]] = [int(coord[0]), int(coord[1])]
-#fi.close()
-
-#imagedata = []
-#targetdata = []
-
 images = []
 targetImages = []
 for files in os.listdir("./data"):
@@ -69,8 +51,6 @@ for files in os.listdir("./data"):
     #generate random offset to target
     xof = random.randint(-5,5)
     yof = random.randint(-5,5)
-    #xof = 0
-    #yof = 0
     left = x-((width)/2)-xof
     top = y-((height)/2)-yof
     nux = x-left
@@ -78,7 +58,6 @@ for files in os.listdir("./data"):
     
     # crop
     im = im.crop((left,top,width+left,height+top))
-    #Image.fromarray(numpy.asarray(im).astype('int')).convert("L").save("test.bmp")
     images.append(numpy.asarray(im))
     
     # create target images
@@ -86,9 +65,7 @@ for files in os.listdir("./data"):
     for xr in range(0,width):
         for yr in range(0,height):
             targetImage[yr,xr] = math.exp(-(((xr-nux)*(xr-nux))+((yr-nuy)*(yr-nuy)))/(2*2))
-    #Image.fromarray((targetImage*255).astype('int')).convert("L").save("test_target.bmp")
     targetImages.append(targetImage)
-    #import pdb;pdb.set_trace()
 
 print "preprocessing"
 # preprocess all images (not targets)
@@ -143,7 +120,7 @@ for f in bottom.flatten():
     fo['bottom']['real'].append(f.real)
     fo['bottom']['imag'].append(f.imag)
 
-fi = open("filter_rand.js","w")
+fi = open("filter_%s.js" % FOCUS,"w")
 fi.write("var filter = ")
 fi.write(json.dumps(fo))
 fi.write(";\n")

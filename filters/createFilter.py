@@ -100,7 +100,6 @@ fil -= minf
 maxf = numpy.max(fil)
 fil *= (255/maxf)
 fil = numpy.floor(fil)
-Image.fromarray(fil.astype('int')).convert("L").save("example.bmp")
 
 # write out to javascript file
 fo = {}

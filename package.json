@@ -1,0 +1,24 @@
+{
+  "name": "mosse",
+  "version": "0.0.2",
+  "description": "Fast correlation filters for tracking objects in video",
+  "main": "build/mosse.js",
+  "repository": "auduno/mosse",
+  "module": "build/mosse.module.js",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "author": {
+    "name": "Audun Mathias Øygard",
+    "email": "amoygard@gmail.com",
+    "url": "https://auduno.com/"
+  },
+  "keywords": [
+    "computer-vision"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "rollup": "^0.41.6"
+  }
+}
+

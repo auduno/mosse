@@ -18,10 +18,10 @@ then run the mossefilter on a canvas element:
 ```JavaScript
 var mfilter = new mosse.mosseFilter();
 mfilter.load(mosse.filters.face_filter);
-// returns mode of correlation filter output inside window, relative to midpoint of window
-// where `element` is a canvas element, and `left`, `top`, `width` and `height` define the window
-// on the canvas element
 var mode = mfilter.track(element, left, top, width, height);
+// returns mode of correlation filter output inside window, relative to midpoint of window
+// where `element` is a canvas element, and `left`, `top`, `width` and `height` 
+// define the window on the canvas element
 ```
 
 You can also update filter during tracking, by setting final parameter to true:

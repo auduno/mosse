@@ -1,9 +1,12 @@
 {
   "name": "mosse",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Fast correlation filters for tracking objects in video",
   "main": "build/mosse.js",
-  "repository": "auduno/mosse",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auduno/mosse.git"
+  },
   "module": "build/mosse.module.js",
   "scripts": {
     "build": "rollup -c"

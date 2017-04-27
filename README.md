@@ -7,28 +7,25 @@ mosse
 
 ### Usage ###
 
-To use with precreated filters, inclue `build/mosse.js` and a suitable filter, e.g. `filters/entire_face_filter.js` in your code:
+To use with precreated filters, include `build/mosse.js` in your code:
 
 ```html
 <script src="js/mosse.js"></script>
-<script src="js/entire_face_filter.js"></script>
 ```
 
 then run the mossefilter on a canvas element:
 
 ```JavaScript
-var mosse = new mosseFilter();
-mosse.load(face_filter);
+var mfilter = new mosse.mosseFilter();
+mfilter.load(mosse.filters.face_filter);
 // returns mode of correlation filter output inside window, relative to midpoint of window
-mosse.track(element, left, top, width, height);
+// where `element` is a canvas element, and `left`, `top`, `width` and `height` define the window
+// on the canvas element
+var mode = mfilter.track(element, left, top, width, height);
 ```
 
-use with precreated filter, updating filter:
+You can also update filter during tracking, by setting final parameter to true:
 
 ```JavaScript
-var mosse = new mosseFilter();
-mosse.load(face_filter);
-// for each call, returns mode of correlation filter output inside window, relative to midpoint of window
-// also learns by adding
-mosse.track(element, left, top, width, height, true);
+mfilter.track(element, left, top, width, height, true);
 ```

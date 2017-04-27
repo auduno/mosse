@@ -3,7 +3,7 @@ export default {
 	targets: [
 		{
 			format: 'umd',
-			moduleName: 'mosseFilter',
+			moduleName: 'mosse',
 			dest: 'build/mosse.js'
 		},
 		{

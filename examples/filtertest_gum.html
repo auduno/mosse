@@ -32,8 +32,6 @@
 		<script src="./ext_js/ccv.js"></script>
 		<script src="./ext_js/cascade.js"></script>
 		<script src="./ext_js/utils.js"></script>
-		<script src="../filters/left_eye_filter.js"></script>
-		<script src="../filters/right_eye_filter.js"></script>
 		<script src="../build/mosse.js"></script>
 		<video id="videoel" width="640" height="480" preload="auto"></video>
 		<canvas id="overlay" width="640" height="480"></canvas>
@@ -168,12 +166,10 @@
 							}
 						}
 						var face = candidate;
-						mossef_left = new mosseFilter({drawResponse : overlay2});
-						//mossef_left = new mosseFilter();
-						mossef_left.load(left_eye_filter);
-						mossef_right = new mosseFilter({drawResponse : overlay2});
-						//mossef_right = new mosseFilter();
-						mossef_right.load(right_eye_filter);
+						mossef_left = new mosse.mosseFilter({drawResponse : overlay2});
+						mossef_left.load(mosse.filters.left_eye_filter);
+						mossef_right = new mosse.mosseFilter({drawResponse : overlay2});
+						mossef_right.load(mosse.filters.right_eye_filter);
 						filterWidth = face.width * 4.5/10;
 						
 						overlayCC.strokeStyle = "orange";

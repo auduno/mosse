@@ -13,6 +13,11 @@
  */
 
 import FFT from './fft.js';
+import left_eye_filter from './filters/left_eye_filter.js'
+import right_eye_filter from './filters/right_eye_filter.js'
+import mouth_filter from './filters/mouth_filter.js'
+import nose_filter from './filters/nose_filter.js'
+import face_filter from './filters/face_filter.js'
 
 function mosseFilter(params) {
     
@@ -524,4 +529,15 @@ function mosseFilter(params) {
     }
 }
 
-export default mosseFilter;
+var mosse = {
+    mosseFilter : mosseFilter,
+    filters : {
+        left_eye_filter : left_eye_filter,
+        right_eye_filter : right_eye_filter,
+        mouth_filter : mouth_filter,
+        nose_filter : nose_filter,
+        face_filter : face_filter
+    }
+}
+
+export default mosse;

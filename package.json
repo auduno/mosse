@@ -1,6 +1,6 @@
 {
   "name": "mosse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fast correlation filters for tracking objects in video",
   "main": "build/mosse.js",
   "repository": {
